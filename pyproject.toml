@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deidentification-audit-tool"
+version = "0.1.0"
+description = "Research prototype for bilingual clinical text de-identification auditing"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Quality & Usability project team"}]
+dependencies = []
+
+[project.optional-dependencies]
+web = ["streamlit>=1.35,<2"]
+dev = ["pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
