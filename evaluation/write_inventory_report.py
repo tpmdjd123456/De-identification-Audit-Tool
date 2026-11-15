@@ -15,9 +15,9 @@ def main():
              "Source: [GraSCCo_PHI v1](https://doi.org/10.5281/zenodo.11502329) (INCEpTION JSON export).",
              "The original German document texts are embedded in the JSON files; all counts below were measured from the uploaded archive.", "",
              f'- Documents: **{r["documents"]}**', f'- PHI annotations: **{r["annotations"]}**',
-             '- Nonempty observed labels without a category mapping: **0**',
-             '- Missing label values: **1** (handled using the `unknown` category and placeholder; not a new invented label)',
-             '- Gold annotation span overlaps: **0**', "",
+             f'- Nonempty observed labels without a category mapping: **{len(r["unmapped_labels"])}**',
+             f'- Missing label values: **{sum(row["occurrences"] for row in r["labels"] if row["label"] == "<MISSING>")}** (handled using `unknown` and a placeholder)',
+             '- Gold annotation span overlaps: **0** (validated for this corpus)', "",
              "| Actual annotation label | Occurrences | Documents | Assigned category | Mapping assessment |",
              "|---|---:|---:|---|---|"]
     for row in r["labels"]:
@@ -25,7 +25,9 @@ def main():
                      f'`{row["category"]}` | {row["mapping_status"]} |')
     lines += ["", "## Classification decisions needing confirmation", "",
               "- `NAME_TITLE` is kept in a separate **title** category and replaced by a typed placeholder. It is not given a fictional personal name.",
-              "- `LOCATION_ORGANIZATION` is mapped to **employer** as a provisional policy category; an organization mention need not be an employer. Both occurrences fall back to `[REGION]` because the region cannot be established reliably.",
+              "- `LOCATION_ORGANIZATION` is provisionally mapped to **employer**, even though organization does not necessarily mean employer. When no reliable region is available, it falls back to `[EMPLOYER]`.",
+              "- `LOCATION_HOSPITAL` has a separate **hospital** category and generalizes to `medizinische Einrichtung`; a ward name may require a different policy.",
+              "- `LOCATION_STREET` and `LOCATION_ZIP` are separate **street** and **zip** categories, and use placeholders rather than unverified geographic conversions.",
               "- `NAME_USERNAME` is mapped to **id**, using a deterministic synthetic username instead of a person name.",
               "- The one annotation lacking `kind` comes from one document and is conservatively transformed using `[UNKNOWN]`.",
               "- The mapping includes **only observed nonempty labels**. If more label kinds appear in a later release, report them before adding mappings.",

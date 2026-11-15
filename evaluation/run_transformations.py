@@ -121,7 +121,9 @@ def format_markdown(summary: dict) -> str:
     counts = next(iter(summary["pipelines"].values()))["category_counts"]
     for cat, n in counts.items():lines.append(f"| {cat} | {n} |")
     lines += ["", "## P2 transformation outcomes", "",
-              "The dictionary coverage figures below refer only to categories using explicit geographic/profession dictionaries. Deterministic name/ID pseudonyms are not dictionary lookups.", "",
+              "Dictionary hit rates apply only to categories with actual geographic/profession lookup tables. "
+              "Hospitals use a generic clinical-institution label; streets and ZIP codes use typed placeholders, "
+              "and names, IDs and contacts use deterministic surrogates. These strategies do not have dictionary hit rates.", "",
               "| Category | Gold spans | Placeholder fallbacks | Dictionary hit rate |", "|---|---:|---:|---:|"]
     data = summary["pipelines"]["P2_surrogate"]
     for cat in ("place", "employer", "profession"):
@@ -140,10 +142,13 @@ def format_markdown(summary: dict) -> str:
               "- `NAME_TITLE` uses a typed placeholder, since a title is not interchangeable with a person name.",
               "- One original annotation has no `kind` value; it is recorded separately and replaced conservatively.",
               "- Date shifts use one seeded document offset between 1 and 3 years (in either direction); all 63 documents have distinct offsets in this run, though the finite-range hash does not guarantee uniqueness on future corpora. Relative gaps for complete dates are checked, but month/year and year-only representations are necessarily lossy.",
-              "- Place and profession dictionaries are intentionally small and conservative; missing mappings become placeholders rather than guessed regions/sectors.",
+              "- Place and profession dictionaries are intentionally small and conservative; missing mappings become placeholders rather than guessed regions/sectors. Organization names without confirmed geography also fall back.",
+              "- Hospitals, streets and postcodes are modeled as distinct categories rather than assuming every location string identifies a city. Generic hospital replacement can lose ward-level clinical context.",
+              "- ID and phone surrogates preserve punctuation and character positions; generated values may resemble valid external identifiers, so they are research stand-ins and not suitable for real communication. Email stand-ins use the reserved `.invalid` domain.",
+              "- A fixed `[MASKED]` token is the default to avoid revealing original value length; character-based masking remains an optional layout baseline.",
               "- Person replacements use context cues when available and neutral initial+surname otherwise. Grammatical agreement and ambiguous names are not fully solved.",
               "- In a few original documents, annotations target eponym-like surnames that overlap medical vocabulary. We do not substitute names with disease/medication terms; any gold annotation error needs review separately.",
-              "- This is synthetic clinical material, not a measured guarantee of anonymity or clinical utility.",
+              "- This is synthetic clinical material, not a measured guarantee of anonymity or clinical utility. The 37 exact-string reappearance flags should be manually reviewed, not automatically interpreted as successful re-identification.",
               "- Full source and transformed document files are excluded from Git and kept under `data/`.", ""]
     # Exact string examples (which include synthetic identifiers/document names)
     # remain only in gitignored local JSON logs. Report aggregate counts publicly.

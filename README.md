@@ -102,3 +102,42 @@ texts under gitignored `data/runs/`. Public aggregate statistics are in
 Region/sector dictionaries are deliberately conservative and frequently
 fall back to typed placeholders; grammatical agreement, ambiguous dates, and
 indirect re-identification risks remain open research problems.
+
+## Issue #18 — GraSCCo transformation layer (draft PR)
+
+The baseline `run_pipeline()` / `transform_text()` API and Streamlit app remain
+compatible. The corpus-backed `transform_document()` API adds configurable
+per-category transformations and audit records. For detector adapters returning
+`{"start": ..., "end": ..., "type": ...}` dictionaries, use `transform_entities()`.
+
+```python
+from audit_tool import transform_entities, standard_pipelines
+
+note = "Patientin Anna Müller wurde aufgenommen."
+spans = [{"start": 10, "end": 21, "type": "NAME_PATIENT"}]
+result = transform_entities(
+    note, spans, document_id="example-1", config=standard_pipelines()[2],
+)
+print(result.output_text)
+```
+
+For a corpus-backed run, obtain the German GraSCCo_PHI v1 JSON archive from
+[Zenodo](https://doi.org/10.5281/zenodo.11502329) and save it at
+`data/grascco/grascco_phi_annotation_json.zip` (the `data/` archive is not
+committed). Then run:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pytest -q
+python -m evaluation.write_inventory_report
+python -m evaluation.run_transformations
+```
+
+See [`docs/grascco_label_inventory.md`](docs/grascco_label_inventory.md),
+[`docs/transformation_run_summary.md`](docs/transformation_run_summary.md), and
+[`docs/issue18_integration_notes.md`](docs/issue18_integration_notes.md).
+
+**Research-only:** These results transform annotated gold spans. They do not
+measure a complete detector's residual risk and are not evidence that real
+clinical text is anonymous. Deterministic surrogates are not security-grade
+pseudonyms; do not commit real records, local run logs or the dataset.

@@ -1,6 +1,7 @@
 """Configurable, reproducible transformations by identifier type."""
 from datetime import datetime, timedelta
 from hashlib import sha256
+import random
 import re
 from typing import Mapping, Sequence
 from .models import Span
@@ -298,6 +299,33 @@ def _generalize_profession(original: str) -> tuple[str, str | None]:
     return "[PROFESSION]", "unmapped-profession-sector"
 
 
+def _shape_surrogate(original: str, *, seed: str, document_id: str, label: str) -> str:
+    """Deterministic format-preserving *research stand-in* for IDs and phones.
+
+    The same source span will get the same stand-in in one document, keeping
+    separators, digit positions and letter case. This is NOT a security-grade
+    pseudonym, nor a guarantee of a valid check digit or unreachable phone.
+    """
+    material = _stable_hash(seed, document_id, label, original.casefold(), "shape")
+    rng = random.Random(int.from_bytes(material[:16], "big"))
+    chars = []
+    for character in original:
+        if character.isdigit():
+            chars.append(str(rng.randrange(10)))
+        elif "A" <= character <= "Z":
+            chars.append(chr(ord("A") + rng.randrange(26)))
+        elif "a" <= character <= "z":
+            chars.append(chr(ord("a") + rng.randrange(26)))
+        elif character.isalpha():
+            # Preserve non-ASCII alphabetic characters rather than inventing
+            # transliteration. If this leaves the identifier unchanged, the
+            # caller's final fail-closed check replaces it with a placeholder.
+            chars.append(character)
+        else:
+            chars.append(character)
+    return "".join(chars)
+
+
 def _consistent_surrogate(span: Span, text: str, document_id: str, seed: str,
                           aliases: dict, gender_cache: dict) -> str:
     label = span.label or "UNKNOWN"
@@ -315,13 +343,15 @@ def _consistent_surrogate(span: Span, text: str, document_id: str, seed: str,
         return candidate
     digest = _stable_hash(seed, document_id, label, normalized).hex()[:12]
     if label == "CONTACT_EMAIL":
+        # RFC 2606 .invalid domain is guaranteed non-routable.
         return f"kontakt-{digest}@example.invalid"
     if label in ("CONTACT_PHONE", "CONTACT_FAX"):
-        return f"KONTAKT-{digest}"
+        return _shape_surrogate(span.text, seed=seed, document_id=document_id, label=label)
     if label == "NAME_USERNAME":
+        # Secretariat abbreviations are not given fictional human names.
         return f"user-{digest}"
     if classify(label) == "id":
-        return f"ID-{digest}"
+        return _shape_surrogate(span.text, seed=seed, document_id=document_id, label=label)
     return f"[{label or 'UNKNOWN'}]"
 
 
@@ -365,7 +395,12 @@ def transform_document(text: str, spans: Sequence[Span], *, document_id: str,
         if strategy == "keep":
             replacement = original
         elif strategy == "mask":
-            replacement = "█" * len(original)
+            # Token masking avoids leaking identifier length by default.
+            # A character-mask baseline is available for layout experiments.
+            if config.mask_style == "characters":
+                replacement = "".join(" " if c.isspace() else "█" for c in original)
+            else:
+                replacement = config.mask_token
         elif strategy == "placeholder":
             replacement = f"[{category.upper()}]" if category != "unknown" else "[UNKNOWN]"
         elif strategy == "surrogate":
@@ -386,14 +421,28 @@ def transform_document(text: str, spans: Sequence[Span], *, document_id: str,
                     replacement = f"{low}–{low + config.age_band_width - 1}"
                 else:
                     replacement, fallback = "[AGE]", "unparseable-age"
-            elif category in ("place", "employer"):
+            elif category == "place":
                 replacement, fallback = _generalize_location(original, span.label)
+            elif category == "employer":
+                # Generalize only when a reliable embedded city was found;
+                # otherwise redact rather than inventing an employer region.
+                replacement, fallback = _generalize_location(original, span.label)
+                if fallback:
+                    replacement, fallback = "[EMPLOYER]", "unknown-employer-region"
+            elif category == "hospital":
+                replacement = "medizinische Einrichtung"
             elif category == "profession":
                 replacement, fallback = _generalize_profession(original)
             else:
                 replacement, fallback = f"[{category.upper()}]", "unsupported-generalization-category"
         else:
             raise ValueError(f"Unknown strategy {strategy}")
+        # Non-keep operators may not return the unmodified annotated value.
+        # Partial dates, impossible generalizations and deterministic collisions
+        # must be safely redacted and explicitly counted as fallbacks.
+        if strategy != "keep" and replacement == original:
+            replacement = f"[{category.upper()}]" if category != "unknown" else "[UNKNOWN]"
+            fallback = "unchanged-after-transform"
         # Nothing may be silently kept because the dictionary failed.
         output.extend((text[cursor:span.start], replacement))
         rows.append(TransformationRecord(span.label or "<MISSING>", category, strategy,
@@ -401,3 +450,13 @@ def transform_document(text: str, spans: Sequence[Span], *, document_id: str,
         cursor = span.end
     output.append(text[cursor:])
     return DocumentTransformation(document_id, "".join(output), config.to_dict(), tuple(rows), offset)
+
+
+# Accept evaluation/ adapter dictionaries without changing the established
+# Span-based transform_document() API or legacy transform_text() used by app.py.
+def transform_entities(text: str, entities, *, document_id: str,
+                       config: TransformConfig, source: str = "detector") -> DocumentTransformation:
+    """Apply Issue #18 strategies to `{start, end, type}` detector records."""
+    from .models import spans_from_entities
+    return transform_document(text, spans_from_entities(entities, text, source=source),
+                              document_id=document_id, config=config)
