@@ -13,3 +13,8 @@ build/
 data/private/
 data/raw/
 *.sqlite3
+
+# GraSCCo annotations embed full clinical text: commit only provenance.
+/data/grascco/*
+!/data/grascco/README.md
+/data/runs/

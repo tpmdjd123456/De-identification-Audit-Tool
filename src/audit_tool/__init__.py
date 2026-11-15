@@ -5,3 +5,7 @@ from .pipeline import run_pipeline, audit_external_text
 from .transform import transform_text
 
 __all__ = ["RegexDetector", "Span", "PipelineResult", "run_pipeline", "audit_external_text", "transform_text"]
+
+from .categories import classify, unknown_labels
+from .config import TransformConfig, standard_pipelines
+from .transform import transform_document

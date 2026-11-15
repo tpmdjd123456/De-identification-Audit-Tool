@@ -32,3 +32,24 @@ class PipelineResult:
     def unchanged_identifier_count(self) -> int:
         """Exact-string persistence indicator; NOT a re-identification risk score."""
         return len(self.remaining_original_identifiers)
+
+
+@dataclass(frozen=True)
+class TransformationRecord:
+    label: str
+    category: str
+    strategy: str
+    original: str
+    replacement: str
+    start: int
+    end: int
+    fallback_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class DocumentTransformation:
+    document_id: str
+    output_text: str
+    config: dict
+    records: tuple[TransformationRecord, ...]
+    date_offset_days: int

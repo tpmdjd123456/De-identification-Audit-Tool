@@ -72,3 +72,33 @@ Our baseline deliberately does **not** claim to answer this yet. Next: select an
 ## Team and next steps
 
 See [docs/research-plan.md](docs/research-plan.md) and [docs/next-tasks.md](docs/next-tasks.md). Choose a group coordinator and assign an owner and backup for each work package. Link issues to commits and document who contributed to each component.
+
+## Issue #18: corpus-based transformation evaluation
+
+A corpus-backed transformation layer is available in `audit_tool.transform.transform_document`,
+with the observed GraSCCo_PHI label mapping in `audit_tool.categories` and reproducible
+`TransformConfig` objects in `audit_tool.config`. The new path does not change the
+existing rule-based web demo or detection adapters.
+
+Get the German PHI annotation export from [Zenodo v1](https://doi.org/10.5281/zenodo.11502329)
+and place `grascco_phi_annotation_json.zip` at `data/grascco/`. The JSON files
+contain both `sofaString` source text and gold labels, so there is no need to
+copy the separate original text release for this experiment. Corpus files are
+ignored by Git; only the provenance README is tracked.
+
+```bash
+python -m pip install -e ".[dev]"
+python -m evaluation.inventory_labels --source data/grascco/grascco_phi_annotation_json.zip
+python -m evaluation.write_inventory_report
+python -m evaluation.run_transformations
+python -m pytest -q
+```
+
+The three pipelines produce JSON configs, per-span audit logs, and transformed
+texts under gitignored `data/runs/`. Public aggregate statistics are in
+`docs/grascco_label_inventory.md` and `docs/transformation_run_summary.md`.
+
+**Cautions:** These use the *gold* annotations, not the live detector's predictions.
+Region/sector dictionaries are deliberately conservative and frequently
+fall back to typed placeholders; grammatical agreement, ambiguous dates, and
+indirect re-identification risks remain open research problems.
