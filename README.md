@@ -141,3 +141,31 @@ See [`docs/grascco_label_inventory.md`](docs/grascco_label_inventory.md),
 measure a complete detector's residual risk and are not evidence that real
 clinical text is anonymous. Deterministic surrogates are not security-grade
 pseudonyms; do not commit real records, local run logs or the dataset.
+
+## Streamlit: GraSCCo Document Review
+
+The Streamlit interface now includes a **GraSCCo Document Review** workflow in
+addition to the original regex demonstration and external-text audit. It uses
+the German corpus's **gold PHI annotation spans**, not the regex detector or an
+end-to-end detection model. Select one of the 63 documents and one of the
+`P0_mask`, `P1_placeholder` or `P2_surrogate` configurations to compare the
+source text and the transformed text side by side. The page displays span
+counts, fallback and unchanged counts, an audit table, the recorded configuration,
+and download options for the transformed text and detailed JSON audit log.
+
+Place the unextracted `grascco_phi_annotation_json.zip` in `data/grascco/` and run:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,web]"
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+The dataset is not stored in Git. Without the ZIP, the interface shows the
+required local path while the earlier workflows remain usable. The transformed
+texts and audit logs remain on the local computer. These results measure
+**transformation of annotated gold spans**, not de-identification quality of
+automatically detected identifiers or anonymity. See
+[docs/streamlit_grascco_demo.md](docs/streamlit_grascco_demo.md) for a short
+demonstration guide and limitations.
